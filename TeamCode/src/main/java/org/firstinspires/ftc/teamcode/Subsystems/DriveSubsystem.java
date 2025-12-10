@@ -3,11 +3,17 @@ package org.firstinspires.ftc.teamcode.Subsystems;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
+import com.seattlesolvers.solverslib.controller.PIDController;
+
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
+import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 
 public class DriveSubsystem {
     private DcMotor frontLeft, frontRight, backLeft, backRight;
     private GoBildaPinpointDriver pinpoint;
+
+    PIDController headingPID = new PIDController(0, 0, 0);
+    PIDController distancePID = new PIDController(0, 0, 0) ;
 
     public void init(HardwareMap hardwareMap) {
         frontLeft  = hardwareMap.get(DcMotor.class, "frontLeft");
@@ -26,6 +32,11 @@ public class DriveSubsystem {
         backRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
         pinpoint = hardwareMap.get(GoBildaPinpointDriver.class, "pinpoint");
+        pinpoint.setOffsets(0, 0, DistanceUnit.MM);
+        pinpoint.setEncoderResolution(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD);
+        pinpoint.setEncoderDirections(GoBildaPinpointDriver.EncoderDirection.FORWARD,
+                GoBildaPinpointDriver.EncoderDirection.FORWARD);
+        pinpoint.resetPosAndIMU();
     }
 
     public void updatePinpoint() {
@@ -67,6 +78,11 @@ public class DriveSubsystem {
         backLeft.setPower(bl);
         frontRight.setPower(fr);
         backRight.setPower(br);
+    }
+
+    public void driveForward(double distance, double power){
+        double heading = pinpoint.getHeading(AngleUnit.DEGREES);
+
     }
 
     public void stop() {
