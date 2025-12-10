@@ -7,6 +7,7 @@ import com.seattlesolvers.solverslib.controller.PIDController;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
 
 public class DriveSubsystem {
     private DcMotor frontLeft, frontRight, backLeft, backRight;
@@ -37,6 +38,8 @@ public class DriveSubsystem {
         pinpoint.setEncoderDirections(GoBildaPinpointDriver.EncoderDirection.FORWARD,
                 GoBildaPinpointDriver.EncoderDirection.FORWARD);
         pinpoint.resetPosAndIMU();
+
+        pinpoint.setPosition(new Pose2D(DistanceUnit.INCH, 0, 0, AngleUnit.DEGREES, 0));
     }
 
     public void updatePinpoint() {
@@ -80,8 +83,17 @@ public class DriveSubsystem {
         backRight.setPower(br);
     }
 
-    public void driveForward(double distance, double power){
-        double heading = pinpoint.getHeading(AngleUnit.DEGREES);
+    public void driveAuto(double distance, double power){
+        while(true){
+            pinpoint.update();
+            Pose2D robotPose = pinpoint.getPosition();
+
+            double x = robotPose.getX(DistanceUnit.MM);
+            double y = robotPose.getY(DistanceUnit.MM);
+            double heading = robotPose.getHeading(AngleUnit.DEGREES);
+
+
+        }
 
     }
 
