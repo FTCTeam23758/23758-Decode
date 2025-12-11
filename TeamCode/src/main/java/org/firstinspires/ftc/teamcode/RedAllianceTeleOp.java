@@ -83,7 +83,7 @@ public class RedAllianceTeleOp extends LinearOpMode {
         intakeHopper = new IntakeHopperSubsystem();
         shooter = new ShooterSubsystem();
 
-        drive.init(hardwareMap);
+        drive.init(hardwareMap, this);
         limelight.init(hardwareMap);
         intakeHopper.init(hardwareMap);
         shooter.init(hardwareMap);

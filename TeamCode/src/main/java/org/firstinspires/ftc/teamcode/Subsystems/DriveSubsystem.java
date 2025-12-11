@@ -1,8 +1,10 @@
 package org.firstinspires.ftc.teamcode.Subsystems;
 
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
+import com.qualcomm.robotcore.util.Range;
 import com.seattlesolvers.solverslib.controller.PIDController;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
@@ -12,11 +14,14 @@ import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
 public class DriveSubsystem {
     private DcMotor frontLeft, frontRight, backLeft, backRight;
     private GoBildaPinpointDriver pinpoint;
+    private LinearOpMode opMode;
 
     PIDController headingPID = new PIDController(0, 0, 0);
     PIDController distancePID = new PIDController(0, 0, 0) ;
 
-    public void init(HardwareMap hardwareMap) {
+    public void init(HardwareMap hardwareMap, LinearOpMode opMode) {
+        this.opMode = opMode;
+
         frontLeft  = hardwareMap.get(DcMotor.class, "frontLeft");
         frontRight = hardwareMap.get(DcMotor.class, "frontRight");
         backLeft   = hardwareMap.get(DcMotor.class, "backLeft");
@@ -33,7 +38,7 @@ public class DriveSubsystem {
         backRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
         pinpoint = hardwareMap.get(GoBildaPinpointDriver.class, "pinpoint");
-        pinpoint.setOffsets(0, 0, DistanceUnit.MM);
+        pinpoint.setOffsets(0, -150, DistanceUnit.MM);
         pinpoint.setEncoderResolution(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD);
         pinpoint.setEncoderDirections(GoBildaPinpointDriver.EncoderDirection.FORWARD,
                 GoBildaPinpointDriver.EncoderDirection.FORWARD);
@@ -83,18 +88,83 @@ public class DriveSubsystem {
         backRight.setPower(br);
     }
 
-    public void driveAuto(double distance, double power){
-        while(true){
+    public void driveAutoY(double distance, double power){
+        pinpoint.update();
+
+        double targetHeading = getHeading(AngleUnit.DEGREES);
+
+        while(opMode.opModeIsActive()){
             pinpoint.update();
             Pose2D robotPose = pinpoint.getPosition();
 
-            double x = robotPose.getX(DistanceUnit.MM);
-            double y = robotPose.getY(DistanceUnit.MM);
+            double currentY = robotPose.getY(DistanceUnit.MM);
+            double distanceError = distance - currentY;
             double heading = robotPose.getHeading(AngleUnit.DEGREES);
 
+            double y = distancePID.calculate(currentY, distance);
+            double rotation = headingPID.calculate(heading, targetHeading);
 
+            y = Range.clip(y, -power, power);
+            rotation = Range.clip(rotation, -power, power);
+
+            if(Math.abs(distanceError) < 1) break;
+
+            frontLeft.setPower(y + rotation);
+            backLeft.setPower(y + rotation);
+            frontRight.setPower(y - rotation);
+            backRight.setPower(y - rotation);
         }
+        stop();
+    }
 
+    public void driveAutoX(double distance, double power){
+        pinpoint.update();
+
+        double targetHeading = getHeading(AngleUnit.DEGREES);
+
+        while(opMode.opModeIsActive()){
+            pinpoint.update();
+            Pose2D robotPose = pinpoint.getPosition();
+
+            double currentX = robotPose.getX(DistanceUnit.MM);
+            double distanceError = distance - currentX;
+            double heading = robotPose.getHeading(AngleUnit.DEGREES);
+
+            double x = distancePID.calculate(currentX, distance);
+            double rotation = headingPID.calculate(heading, 0);
+
+            x = Range.clip(x, -power, power);
+            rotation = Range.clip(rotation, -power, power);
+
+            if(Math.abs(distanceError) < 1) break;
+
+            frontLeft.setPower(x + rotation);
+            backLeft.setPower(-x + rotation);
+            frontRight.setPower(-x - rotation);
+            backRight.setPower(x - rotation);
+        }
+        stop();
+    }
+
+    public void driveAutoRotate(double heading, double power){
+        while(opMode.opModeIsActive()){
+            pinpoint.update();
+            Pose2D robotPose = pinpoint.getPosition();
+
+            double currentHeading = robotPose.getHeading(AngleUnit.DEGREES);
+
+            double rotation = headingPID.calculate(currentHeading, heading);
+
+            rotation = Range.clip(rotation, -power, power);
+
+            if(Math.abs(currentHeading - heading) < 0.5) break;
+
+            frontLeft.setPower(rotation);
+            backLeft.setPower(rotation);
+            frontRight.setPower(-rotation);
+            backRight.setPower(-rotation);
+        }
+        stop();
     }
 
     public void stop() {
