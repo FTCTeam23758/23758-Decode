@@ -12,6 +12,9 @@ public class LimelightSubsystem {
     private LLResult latestResult;
     private static final double limelightOffset = 0.20;
 
+    // 🔥 NUEVO: Offset de alineación (positivo = más a la derecha, negativo = más a la izquierda)
+    private static final double alignmentTxOffset = 2.0;  // Ajusta este valor en grados
+
     public void init(HardwareMap hardwareMap) {
         limelight = hardwareMap.get(Limelight3A.class, "limelight");
         limelight.start();
@@ -48,6 +51,12 @@ public class LimelightSubsystem {
         }
 
         return best;
+    }
+
+    // 🔥 NUEVO: Método para obtener Tx con offset aplicado
+    public double getAdjustedTx(LLResultTypes.FiducialResult fiducial) {
+        if (fiducial == null) return 0.0;
+        return fiducial.getTargetXDegrees() - alignmentTxOffset;
     }
 
     public double calculateDistance(LLResultTypes.FiducialResult fiducial) {

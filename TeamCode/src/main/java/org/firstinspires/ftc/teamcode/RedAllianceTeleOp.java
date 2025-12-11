@@ -7,6 +7,7 @@ import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import com.qualcomm.hardware.limelightvision.LLResult;
 import com.qualcomm.hardware.limelightvision.LLResultTypes;
 import java.util.List;
+
 import org.firstinspires.ftc.teamcode.Subsystems.DriveSubsystem;
 import org.firstinspires.ftc.teamcode.Subsystems.LimelightSubsystem;
 import org.firstinspires.ftc.teamcode.Subsystems.IntakeHopperSubsystem;
@@ -24,18 +25,17 @@ public class RedAllianceTeleOp extends LinearOpMode {
         ALIGNED
     }
     private RobotState state = RobotState.MANUAL;
-
-    private static final double kP_rotate = 0.02;
-    private static final double minAlignPower = 0.12;
-    private static final double maxAlignPower = 0.35;
-    private static final double alignTxTolerance = 1.5;
+    private static final double kP_rotate = 0.03;
+    private static final double minAlignPower = 0.15;
+    private static final double maxAlignPower = 0.50;
+    private static final double alignTxTolerance = 2.0;
     private static final double alignDistanceMin = 1.2;
     private static final double alignDistanceMax = 3.7;
     private static final double matrixDistanceMin = 1.4;
     private static final double matrixDistanceMax = 3.7;
 
     private final ElapsedTime alignTimer = new ElapsedTime();
-    private static final double alignTimeout = 3.0;
+    private static final double alignTimeout = 3.5;
 
     private double measuredDistance = 0.0;
     private double targetTx = 0.0;
@@ -44,6 +44,8 @@ public class RedAllianceTeleOp extends LinearOpMode {
     private boolean shooterToggleLatch = false;
     private boolean dpadUpLatch = false;
     private boolean dpadDownLatch = false;
+
+    // ================================================================
 
     @Override
     public void runOpMode() {
@@ -74,7 +76,6 @@ public class RedAllianceTeleOp extends LinearOpMode {
             }
             updateTelemetry();
         }
-        stopAllMotors();
     }
 
     private void initHardware() {
@@ -101,12 +102,12 @@ public class RedAllianceTeleOp extends LinearOpMode {
         double speed = gamepad1.right_trigger > 0.1 ? turboSpeed : normalSpeed;
         drive.driveFieldOriented(forward, strafe, rotate, speed);
 
-        // SHOOTER TOGGLE
+        // SHOOTER TOGGLE + AUTO ALIGN
         if (gamepad2.b && !shooterToggleLatch) {
             shooterToggleLatch = true;
-            shooter.setShooterActive(!shooter.isShooterActive());
 
-            if (shooter.isShooterActive()) {
+            if (!shooter.isShooterActive()) {
+                shooter.setShooterActive(true);
                 gamepad2.rumble(100);
 
                 targetFiducial = limelight.findBestFiducial();
@@ -114,13 +115,22 @@ public class RedAllianceTeleOp extends LinearOpMode {
                     state = RobotState.AUTO_ALIGNING;
                     alignTimer.reset();
                     gamepad1.rumble(200);
+                } else {
+                    double defaultDistance = (matrixDistanceMin + matrixDistanceMax) / 2.0;
+                    shooter.applyShooterSettings(defaultDistance);
+                    gamepad2.rumble(50);
+                    sleep(50);
+                    gamepad2.rumble(50);
                 }
+            } else {
+                shooter.setShooterActive(false);
+                state = RobotState.MANUAL;
+                gamepad2.rumble(200);
             }
         } else if (!gamepad2.b) {
             shooterToggleLatch = false;
         }
 
-        // HOOD CONTROL
         if (gamepad2.dpad_up && !dpadUpLatch) {
             dpadUpLatch = true;
             shooter.adjustHood(0.1);
@@ -135,17 +145,14 @@ public class RedAllianceTeleOp extends LinearOpMode {
             dpadDownLatch = false;
         }
 
-        // INTAKE
         if (gamepad1.right_trigger > 0.3) {
             intakeHopper.setIntakePower(0.8);
         } else {
             intakeHopper.setIntakePower(0.0);
         }
 
-        // HOPPER
         boolean override = gamepad2.left_trigger > 0.5;
         double hopperPower = 0.8;
-
         if (gamepad2.left_bumper) {
             intakeHopper.setHopperPower(-hopperPower);
         }
@@ -184,13 +191,14 @@ public class RedAllianceTeleOp extends LinearOpMode {
             return;
         }
 
-        targetTx = targetFiducial.getTargetXDegrees();
+        // 🔥 CAMBIO: Usar Tx ajustado con offset
+        targetTx = limelight.getAdjustedTx(targetFiducial);
 
-        boolean aligned = Math.abs(targetTx) < alignTxTolerance &&
-                measuredDistance >= alignDistanceMin &&
+        boolean txAligned = Math.abs(targetTx) < alignTxTolerance;
+        boolean distanceInRange = measuredDistance >= alignDistanceMin &&
                 measuredDistance <= alignDistanceMax;
 
-        if (aligned) {
+        if (txAligned && distanceInRange) {
             state = RobotState.ALIGNED;
             drive.stop();
 
@@ -198,7 +206,7 @@ public class RedAllianceTeleOp extends LinearOpMode {
                     measuredDistance <= matrixDistanceMax;
 
             if (inMatrixRange) {
-                shooter.applyShooterSettings(measuredDistance, matrixDistanceMin, matrixDistanceMax);
+                shooter.applyShooterSettings(measuredDistance);
                 gamepad1.rumble(200);
                 sleep(50);
                 gamepad1.rumble(200);
@@ -228,62 +236,111 @@ public class RedAllianceTeleOp extends LinearOpMode {
     }
 
     private void handleAligned() {
-        handleManualControl();
+        // Permitir movimiento suave
+        double forward = -gamepad1.left_stick_y * 0.4;
+        double strafe  = -gamepad1.left_stick_x * 0.4;
+        double rotate  =  gamepad1.right_stick_x * 0.4;
+        drive.driveFieldOriented(forward, strafe, rotate, 1.0);
+
+        // Control de intake/hopper
+        if (gamepad1.right_trigger > 0.3) {
+            intakeHopper.setIntakePower(0.8);
+        } else {
+            intakeHopper.setIntakePower(0.0);
+        }
+
+        boolean override = gamepad2.left_trigger > 0.5;
+        if (gamepad2.left_bumper) {
+            intakeHopper.setHopperPower(-0.8);
+        } else if (gamepad2.right_bumper) {
+            boolean allowForward = !shooter.isShooterActive() || shooter.isReady() || override;
+            intakeHopper.setHopperPower(allowForward ? 0.8 : 0.0);
+        } else {
+            intakeHopper.setHopperPower(0.0);
+        }
 
         if (gamepad1.b) {
             state = RobotState.MANUAL;
+            return;
         }
 
+        if (gamepad2.b && !shooterToggleLatch) {
+            shooterToggleLatch = true;
+            shooter.setShooterActive(false);
+            state = RobotState.MANUAL;
+        } else if (!gamepad2.b) {
+            shooterToggleLatch = false;
+        }
+
+        // Verificar que no se perdió la alineación
         targetFiducial = limelight.findBestFiducial();
         if (targetFiducial != null) {
-            targetTx = targetFiducial.getTargetXDegrees();
-            if (Math.abs(targetTx) > alignTxTolerance * 2) {
+            // 🔥 CAMBIO: Usar Tx ajustado con offset
+            targetTx = limelight.getAdjustedTx(targetFiducial);
+            if (Math.abs(targetTx) > alignTxTolerance * 3) {
                 state = RobotState.MANUAL;
             }
+        } else {
+            state = RobotState.MANUAL;
         }
-    }
-
-    private void stopAllMotors() {
-        drive.stop();
-        shooter.stop();
-        intakeHopper.stop();
     }
 
     private void updateTelemetry() {
-        telemetry.addLine("CASPER TELEOP");
+        telemetry.addLine("=== CASPER TELEOP ===");
 
         String stateStr = state == RobotState.MANUAL ? "MANUAL" :
-                state == RobotState.AUTO_ALIGNING ? "ALIGNING" :
-                        "ALIGNED";
-        telemetry.addData("STATE:", stateStr);
+                state == RobotState.AUTO_ALIGNING ? "ALIGNING" : "ALIGNED";
+        telemetry.addData("STATE", stateStr);
         telemetry.addLine();
 
-        telemetry.addData("Shooter", shooter.isShooterActive() ? "ON" : "IDLE");
-        telemetry.addData("RPM", "/", shooter.getCurrentRPM(), shooter.getTargetRPM());
+        // SHOOTER INFO
+        telemetry.addData("Shooter", shooter.isShooterActive() ? "✓ ON" : "✗ IDLE");
+        telemetry.addData("Current RPM", shooter.getCurrentRPM());
+        telemetry.addData("Target RPM", shooter.getTargetRPM());
         if (shooter.isShooterActive()) {
-            telemetry.addData("Ready", shooter.isReady() ? "YES" : "NO");
+            telemetry.addData("Ready", shooter.isReady() ? "✓ YES" : "✗ NO");
         }
-        telemetry.addData("Hood", shooter.getHoodPos());
+        telemetry.addData("Hood Pos", shooter.getHoodPos());
         telemetry.addData("Intake", intakeHopper.isIntakeRunning() ? "ON" : "OFF");
         telemetry.addLine();
 
+        // LIMELIGHT & ALIGNMENT INFO
         LLResult latestResult = limelight.getLatestResult();
         if (latestResult != null && latestResult.isValid()) {
             List<LLResultTypes.FiducialResult> fiducials = latestResult.getFiducialResults();
             if (fiducials != null && !fiducials.isEmpty()) {
-                telemetry.addData("Tags", fiducials.size());
+                telemetry.addData("AprilTags", fiducials.size());
                 if (targetFiducial != null && measuredDistance > 0) {
                     telemetry.addData("Distance", measuredDistance);
                     telemetry.addData("Tx", targetTx);
 
+                    boolean txOK = Math.abs(targetTx) < alignTxTolerance;
+                    boolean distOK = measuredDistance >= alignDistanceMin &&
+                            measuredDistance <= alignDistanceMax;
+
+                    telemetry.addData("Tx Aligned", txOK ? "✓" : Math.abs(targetTx));
+                    telemetry.addData("  Tolerance", alignTxTolerance);
+                    telemetry.addData("Dist OK", distOK ? "✓" : "✗");
+
                     boolean inRange = measuredDistance >= matrixDistanceMin &&
                             measuredDistance <= matrixDistanceMax;
-                    telemetry.addData("  Matrix", inRange ? "✓ IN RANGE" : "✗ OUT OF RANGE");
+                    telemetry.addData("Matrix Range", inRange ? "✓ IN" : "✗ OUT");
                 }
+            } else {
+                telemetry.addData("AprilTags", "✗ NONE");
             }
+        } else {
+            telemetry.addData("Limelight", "✗ NO SIGNAL");
+        }
+        telemetry.addLine();
+
+        if (state == RobotState.AUTO_ALIGNING) {
+            double timeLeft = alignTimeout - alignTimer.seconds();
+            telemetry.addData("Align Timer", timeLeft);
         }
 
         telemetry.addData("Heading", drive.getHeading(AngleUnit.DEGREES));
+
         telemetry.update();
     }
 }

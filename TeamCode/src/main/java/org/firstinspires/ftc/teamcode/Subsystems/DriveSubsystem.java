@@ -58,15 +58,10 @@ public class DriveSubsystem {
     }
 
     public void driveRobotOriented(double rotate) {
-        double fl = (double) 0 + (double) 0 + rotate;
-        double bl = (double) 0 + rotate;
-        double fr = (double) 0 - (double) 0 - rotate;
-        double br = (double) 0 + (double) 0 - rotate;
-
-        frontLeft.setPower(fl);
-        backLeft.setPower(bl);
-        frontRight.setPower(fr);
-        backRight.setPower(br);
+        frontLeft.setPower(rotate);
+        backLeft.setPower(rotate);
+        frontRight.setPower(-rotate);
+        backRight.setPower(-rotate);
     }
 
     public void stop() {

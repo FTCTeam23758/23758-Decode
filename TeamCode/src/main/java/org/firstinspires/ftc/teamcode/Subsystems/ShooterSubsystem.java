@@ -23,16 +23,19 @@ public class ShooterSubsystem {
     private static final double matrixSnapTolerance = 0.05;
 
     private final double[][] shooterMatrix = {
-            {1.8, 1800, 0.40},
-            {2.0, 1900, 0.38},
+            {1.8, 1700, 0.40},
+            {2.0, 1800, 0.38},
             {3.0, 2000, 0.20},
-            {3.3, 2050, 0.10},
-            {3.5, 2100, 0.0},
+            {3.3, 2050, 0.15},
+            {3.5, 2080, 0.10},
     };
 
     public void init(HardwareMap hardwareMap) {
         shooterMotor = hardwareMap.get(DcMotorEx.class, "shooterMotor");
+
+        shooterMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         shooterMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        shooterMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
         capServo = hardwareMap.get(Servo.class, "capServo");
         hoodPos = 0.20;
@@ -65,7 +68,7 @@ public class ShooterSubsystem {
                 currentRPM >= targetRPM * readyFactor;
     }
 
-    public void applyShooterSettings(double distance, double matrixDistanceMin, double matrixDistanceMax) {
+    public void applyShooterSettings(double distance) {
         int closestIdx = 0;
         double minDiff = Double.MAX_VALUE;
 
