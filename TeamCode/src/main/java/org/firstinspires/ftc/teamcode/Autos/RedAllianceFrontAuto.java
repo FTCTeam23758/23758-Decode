@@ -25,7 +25,7 @@ public class RedAllianceFrontAuto extends LinearOpMode {
 
         if (opModeIsActive()) {
             drive.autoForward(170, 0.6);
-            drive.autoRotate(-15, 0.5);
+            drive.autoRotate(180, 0.5);
 
             shooter.setServo(0.4);
 
@@ -50,7 +50,7 @@ public class RedAllianceFrontAuto extends LinearOpMode {
                 telemetry.update();
             }
 
-            drive.autoRotate(-90, 0.5);
+            drive.autoRotate(120, 0.5);
 
             intake.setIntakePower(0.6);
             intake.setHopperPower(0.4);
@@ -60,7 +60,7 @@ public class RedAllianceFrontAuto extends LinearOpMode {
             intake.setHopperPower(0);
 
             drive.autoForward(-90, -0.5);
-            drive.autoRotate(-15, 0.5);
+            drive.autoRotate(180, 0.5);
 
             shooter.setRPM(1600);
 
