@@ -38,13 +38,13 @@ public class DriveSubsystem {
         backRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
         pinpoint = hardwareMap.get(GoBildaPinpointDriver.class, "pinpoint");
-        pinpoint.setOffsets(0, -150, DistanceUnit.MM);
+        pinpoint.setOffsets(160.0, 0.0, DistanceUnit.MM);
         pinpoint.setEncoderResolution(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD);
         pinpoint.setEncoderDirections(GoBildaPinpointDriver.EncoderDirection.FORWARD,
                 GoBildaPinpointDriver.EncoderDirection.FORWARD);
         pinpoint.resetPosAndIMU();
 
-        pinpoint.setPosition(new Pose2D(DistanceUnit.INCH, 0, 0, AngleUnit.DEGREES, 0));
+        pinpoint.setPosition(new Pose2D(DistanceUnit.MM, 0, 0, AngleUnit.DEGREES, 0));
     }
 
     public void updatePinpoint() {
@@ -88,7 +88,7 @@ public class DriveSubsystem {
         backRight.setPower(br);
     }
 
-    public void driveAutoY(double distance, double power){
+    public void autoForward(double distance, double power){
         pinpoint.update();
 
         double targetHeading = getHeading(AngleUnit.DEGREES);
@@ -97,41 +97,12 @@ public class DriveSubsystem {
             pinpoint.update();
             Pose2D robotPose = pinpoint.getPosition();
 
-            double currentY = robotPose.getY(DistanceUnit.MM);
-            double distanceError = distance - currentY;
+            double currentDistance = robotPose.getX(DistanceUnit.CM);
+            double distanceError = distance - currentDistance;
             double heading = robotPose.getHeading(AngleUnit.DEGREES);
 
-            double y = distancePID.calculate(currentY, distance);
+            double x = distancePID.calculate(currentDistance, distance);
             double rotation = headingPID.calculate(heading, targetHeading);
-
-            y = Range.clip(y, -power, power);
-            rotation = Range.clip(rotation, -power, power);
-
-            if(Math.abs(distanceError) < 1) break;
-
-            frontLeft.setPower(y + rotation);
-            backLeft.setPower(y + rotation);
-            frontRight.setPower(y - rotation);
-            backRight.setPower(y - rotation);
-        }
-        stop();
-    }
-
-    public void driveAutoX(double distance, double power){
-        pinpoint.update();
-
-        double targetHeading = getHeading(AngleUnit.DEGREES);
-
-        while(opMode.opModeIsActive()){
-            pinpoint.update();
-            Pose2D robotPose = pinpoint.getPosition();
-
-            double currentX = robotPose.getX(DistanceUnit.MM);
-            double distanceError = distance - currentX;
-            double heading = robotPose.getHeading(AngleUnit.DEGREES);
-
-            double x = distancePID.calculate(currentX, distance);
-            double rotation = headingPID.calculate(heading, 0);
 
             x = Range.clip(x, -power, power);
             rotation = Range.clip(rotation, -power, power);
@@ -139,14 +110,43 @@ public class DriveSubsystem {
             if(Math.abs(distanceError) < 1) break;
 
             frontLeft.setPower(x + rotation);
-            backLeft.setPower(-x + rotation);
-            frontRight.setPower(-x - rotation);
+            backLeft.setPower(x + rotation);
+            frontRight.setPower(x - rotation);
             backRight.setPower(x - rotation);
         }
         stop();
     }
 
-    public void driveAutoRotate(double heading, double power){
+    public void autoStrafe(double distance, double power){
+        pinpoint.update();
+
+        double targetHeading = getHeading(AngleUnit.DEGREES);
+
+        while(opMode.opModeIsActive()){
+            pinpoint.update();
+            Pose2D robotPose = pinpoint.getPosition();
+
+            double currentDistance = robotPose.getY(DistanceUnit.CM);
+            double distanceError = distance - currentDistance;
+            double heading = robotPose.getHeading(AngleUnit.DEGREES);
+
+            double y = distancePID.calculate(currentDistance, distance);
+            double rotation = headingPID.calculate(heading, 0);
+
+            y = Range.clip(y, -power, power);
+            rotation = Range.clip(rotation, -power, power);
+
+            if(Math.abs(distanceError) < 1) break;
+
+            frontLeft.setPower(-y + rotation);
+            backLeft.setPower(y + rotation);
+            frontRight.setPower(y - rotation);
+            backRight.setPower(-y - rotation);
+        }
+        stop();
+    }
+
+    public void autoRotate(double heading, double power){
         while(opMode.opModeIsActive()){
             pinpoint.update();
             Pose2D robotPose = pinpoint.getPosition();
