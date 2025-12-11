@@ -148,4 +148,18 @@ public class ShooterSubsystem {
     public void stop() {
         shooterMotor.setPower(0);
     }
+
+    public void setRPM(double rpm) {
+        shooterActive = true;
+        targetRPM = rpm;
+    }
+
+    public boolean isAtTargetRPM() {
+        return currentRPM >= targetRPM * readyFactor;
+    }
+
+    public void setServo(double pos){
+        capServo.setPosition(pos);
+    }
+
 }
