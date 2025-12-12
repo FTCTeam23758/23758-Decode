@@ -8,7 +8,7 @@ import org.firstinspires.ftc.teamcode.Subsystems.DriveSubsystem;
 import org.firstinspires.ftc.teamcode.Subsystems.IntakeHopperSubsystem;
 import org.firstinspires.ftc.teamcode.Subsystems.ShooterSubsystem;
 
-@Autonomous(name = "Red Alliance Front Autonomous")
+@Autonomous(name = "Red Alliance Front Auto")
 public class RedAllianceFrontAuto extends LinearOpMode {
     private DriveSubsystem drive;
     private ShooterSubsystem shooter;
@@ -24,25 +24,25 @@ public class RedAllianceFrontAuto extends LinearOpMode {
         waitForStart();
 
         if (opModeIsActive()) {
-            drive.autoForward(170, 0.6);
-            drive.autoRotate(180, 0.5);
+            // Move and turn for first shoot
+            drive.autoForward(150, 0.6);
+            drive.autoRotate(170, 0.5);
 
             shooter.setServo(0.4);
-
             shooter.setRPM(1600);
 
             ElapsedTime timer = new ElapsedTime();
 
-            // First: get up to speed
+            // Accelerate Shooter
             while (opModeIsActive() && !shooter.isAtTargetRPM()) {
                 shooter.update();
                 telemetry.addData("ShooterRPM", shooter.getCurrentRPM());
                 telemetry.update();
             }
 
-            // Second: hold speed for given seconds
+            // First shoot
             timer.reset();
-            while (opModeIsActive() && timer.seconds() < 10) {
+            while (opModeIsActive() && timer.seconds() < 6) {
                 shooter.update();
                 intake.setIntakePower(0.4);
                 intake.setHopperPower(0.4);
@@ -50,32 +50,40 @@ public class RedAllianceFrontAuto extends LinearOpMode {
                 telemetry.update();
             }
 
-            drive.autoRotate(120, 0.5);
+            shooter.stop();
+            intake.setIntakePower(0);
+            intake.setHopperPower(0);
 
+            drive.autoRotate(-146, 0.5);
+            sleep(200);
+
+            drive.resetPinpoint();
+
+            telemetry.addLine("Pinpoint reset");
+            telemetry.addLine("Heading = 0");
+            telemetry.update();
+            sleep(200);
+
+            drive.autoRotate(-90,0.5);
             intake.setIntakePower(0.6);
             intake.setHopperPower(0.4);
 
-            drive.autoForward(90, 0.5);
+            drive.autoMoveRelative(90, 0.5);
 
+            intake.setIntakePower(0);
             intake.setHopperPower(0);
 
-            drive.autoForward(-90, -0.5);
-            drive.autoRotate(180, 0.5);
+            drive.autoMoveRelative(-90, 0.5);
+            drive.autoRotate(-45,0.5);
 
-            shooter.setRPM(1600);
-
-            ElapsedTime timer2 = new ElapsedTime();
-
-            // First: get up to speed
             while (opModeIsActive() && !shooter.isAtTargetRPM()) {
                 shooter.update();
                 telemetry.addData("ShooterRPM", shooter.getCurrentRPM());
                 telemetry.update();
             }
 
-            // Second: hold speed for given seconds
-            timer2.reset();
-            while (opModeIsActive() && timer2.seconds() < 10) {
+            timer.reset();
+            while (opModeIsActive() && timer.seconds() < 8) {
                 shooter.update();
                 intake.setIntakePower(0.4);
                 intake.setHopperPower(0.4);
@@ -83,7 +91,13 @@ public class RedAllianceFrontAuto extends LinearOpMode {
                 telemetry.update();
             }
 
-            drive.stop();
+            drive.autoRotate(0,0.5);
+
+            shooter.setRPM(0.0);
+            intake.setIntakePower(0.0);
+            intake.setHopperPower(0.0);
+
+        drive.stop();
         }
     }
 

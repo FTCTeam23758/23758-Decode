@@ -11,11 +11,20 @@ public class LimelightSubsystem {
     private Limelight3A limelight;
     private LLResult latestResult;
     private static final double limelightOffset = 0.20;
+    private int targetAprilTagID = 24;
 
     public void init(HardwareMap hardwareMap) {
         limelight = hardwareMap.get(Limelight3A.class, "limelight");
         limelight.start();
         limelight.pipelineSwitch(0);
+    }
+
+    public void setTargetAprilTag(int tagID) {
+        this.targetAprilTagID = tagID;
+    }
+
+    public int getTargetAprilTag() {
+        return targetAprilTagID;
     }
 
     public void updateResult() {
@@ -36,18 +45,12 @@ public class LimelightSubsystem {
             return null;
         }
 
-        LLResultTypes.FiducialResult best = null;
-        double minTx = Double.MAX_VALUE;
-
         for (LLResultTypes.FiducialResult f : fiducials) {
-            double absTx = Math.abs(f.getTargetXDegrees());
-            if (absTx < minTx) {
-                minTx = absTx;
-                best = f;
+            if (f.getFiducialId() == targetAprilTagID) {
+                return f;
             }
         }
-
-        return best;
+        return null;
     }
 
     public double calculateDistance(LLResultTypes.FiducialResult fiducial) {

@@ -12,8 +12,8 @@ import org.firstinspires.ftc.teamcode.Subsystems.LimelightSubsystem;
 import org.firstinspires.ftc.teamcode.Subsystems.IntakeHopperSubsystem;
 import org.firstinspires.ftc.teamcode.Subsystems.ShooterSubsystem;
 
-@TeleOp(name = "Casper Red Alliance TeleOp")
-public class RedAllianceTeleOp extends LinearOpMode {
+@TeleOp(name = "Casper Blue Alliance TeleOp")
+public class BlueAllianceTeleOp extends LinearOpMode {
     private DriveSubsystem drive;
     private LimelightSubsystem limelight;
     private IntakeHopperSubsystem intakeHopper;
@@ -51,6 +51,7 @@ public class RedAllianceTeleOp extends LinearOpMode {
 
         telemetry.addLine("Limelight: ✓");
         telemetry.addLine("Pinpoint IMU: ✓");
+        telemetry.addLine("BLUE ALLIANCE MODE");
         telemetry.update();
 
         waitForStart();
@@ -96,8 +97,8 @@ public class RedAllianceTeleOp extends LinearOpMode {
         intakeHopper.init(hardwareMap);
         shooter.init(hardwareMap);
 
-        drive.setBlueAlliance(false);
-        limelight.setTargetAprilTag(24);
+        drive.setBlueAlliance(true);
+        limelight.setTargetAprilTag(20); // Blue High Basket
     }
 
     private void handleManualControl() {
@@ -261,7 +262,7 @@ public class RedAllianceTeleOp extends LinearOpMode {
     }
 
     private void updateTelemetry() {
-        telemetry.addLine("CASPER TELEOP");
+        telemetry.addLine("CASPER TELEOP [BLUE]");
 
         String stateStr = state == RobotState.MANUAL ? "MANUAL" :
                 state == RobotState.AUTO_ALIGNING ? "ALIGNING" :
@@ -286,6 +287,7 @@ public class RedAllianceTeleOp extends LinearOpMode {
                 if (targetFiducial != null && measuredDistance > 0) {
                     telemetry.addData("Distance", measuredDistance);
                     telemetry.addData("Tx", targetTx);
+                    telemetry.addData("Target Tag", limelight.getTargetAprilTag());
 
                     boolean inRange = measuredDistance >= matrixDistanceMin &&
                             measuredDistance <= matrixDistanceMax;

@@ -1,7 +1,5 @@
 package org.firstinspires.ftc.teamcode.Subsystems;
 
-import static org.firstinspires.ftc.robotcore.external.BlocksOpModeCompanion.telemetry;
-
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.HardwareMap;
@@ -18,17 +16,19 @@ public class DriveSubsystem {
     private GoBildaPinpointDriver pinpoint;
     private LinearOpMode opMode;
 
-    PIDController headingPID = new PIDController(0.04, 0, 0);
-    PIDController forwardDistancePID = new PIDController(0.06, 0, 0); //kp 0.07
-    PIDController strafeDistancePID = new PIDController(0.08, 0, 0); //kp 0.07
+    PIDController headingPID = new PIDController(0.07, 0, 0.001);
+    PIDController forwardDistancePID = new PIDController(0.06, 0, 0);
+    PIDController strafeDistancePID = new PIDController(0.08, 0, 0);
+
+    private boolean isBlueAlliance = false;
 
     public void init(HardwareMap hardwareMap, LinearOpMode opMode) {
         this.opMode = opMode;
 
-        frontLeft  = hardwareMap.get(DcMotor.class, "frontLeft");
+        frontLeft = hardwareMap.get(DcMotor.class, "frontLeft");
         frontRight = hardwareMap.get(DcMotor.class, "frontRight");
-        backLeft   = hardwareMap.get(DcMotor.class, "backLeft");
-        backRight  = hardwareMap.get(DcMotor.class, "backRight");
+        backLeft = hardwareMap.get(DcMotor.class, "backLeft");
+        backRight = hardwareMap.get(DcMotor.class, "backRight");
 
         frontLeft.setDirection(DcMotor.Direction.FORWARD);
         frontRight.setDirection(DcMotor.Direction.REVERSE);
@@ -46,8 +46,6 @@ public class DriveSubsystem {
         pinpoint.setEncoderDirections(GoBildaPinpointDriver.EncoderDirection.FORWARD,
                 GoBildaPinpointDriver.EncoderDirection.FORWARD);
         pinpoint.resetPosAndIMU();
-
-        //pinpoint.setPosition(new Pose2D(DistanceUnit.MM, 0, 0, AngleUnit.DEGREES, 120));
     }
 
     public void updatePinpoint() {
@@ -62,7 +60,20 @@ public class DriveSubsystem {
         return pinpoint.getHeading(unit);
     }
 
+    public void setBlueAlliance(boolean isBlue) {
+        this.isBlueAlliance = isBlue;
+    }
+
+    public void resetToZero() {
+        pinpoint.resetPosAndIMU();
+    }
+
     public void driveFieldOriented(double forward, double strafe, double rotate, double speed) {
+        if (isBlueAlliance) {
+            forward = -forward;
+            strafe = -strafe;
+        }
+
         double heading = pinpoint.getHeading(AngleUnit.RADIANS);
 
         double rotX = forward * Math.cos(-heading) - strafe * Math.sin(-heading);
@@ -80,10 +91,10 @@ public class DriveSubsystem {
     }
 
     public void driveRobotOriented(double rotate) {
-        double fl = (double) 0 + (double) 0 + rotate;
-        double bl = (double) 0 + rotate;
-        double fr = (double) 0 - (double) 0 - rotate;
-        double br = (double) 0 + (double) 0 - rotate;
+        double fl = rotate;
+        double bl = rotate;
+        double fr = -rotate;
+        double br = -rotate;
 
         frontLeft.setPower(fl);
         backLeft.setPower(bl);
@@ -91,22 +102,78 @@ public class DriveSubsystem {
         backRight.setPower(br);
     }
 
-    public void autoForward(double distance, double power){
+    public void autoForwardRelative(double distanceCM, double power) {
+        pinpoint.update();
+        Pose2D startPose = pinpoint.getPosition();
+
+        double startX = startPose.getX(DistanceUnit.CM);
+        double startY = startPose.getY(DistanceUnit.CM);
+        double targetHeading = startPose.getHeading(AngleUnit.DEGREES);
+
+        forwardDistancePID.reset();
+        headingPID.reset();
+
+        while(opMode.opModeIsActive()) {
+            pinpoint.update();
+            Pose2D currentPose = pinpoint.getPosition();
+
+            double currentX = currentPose.getX(DistanceUnit.CM);
+            double currentY = currentPose.getY(DistanceUnit.CM);
+
+            double deltaX = currentX - startX;
+            double deltaY = currentY - startY;
+            double distanceTraveled = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+            if (distanceCM < 0 && distanceTraveled > 0) {
+                distanceTraveled = -distanceTraveled;
+            }
+
+            double distanceError = distanceCM - distanceTraveled;
+            double currentHeading = currentPose.getHeading(AngleUnit.DEGREES);
+
+            double forward = forwardDistancePID.calculate(distanceTraveled, distanceCM);
+            double rotation = headingPID.calculate(currentHeading, targetHeading);
+
+            forward = Range.clip(forward, -Math.abs(power), Math.abs(power));
+            rotation = Range.clip(rotation, -0.3, 0.3);
+
+            opMode.telemetry.addData("Distance Target", distanceCM);
+            opMode.telemetry.addData("Distance Traveled", distanceTraveled);
+            opMode.telemetry.addData("Distance Error", distanceError);
+            opMode.telemetry.addData("Heading", currentHeading);
+            opMode.telemetry.update();
+
+            if(Math.abs(distanceError) < 0.5) break;
+
+            double heading = currentPose.getHeading(AngleUnit.RADIANS);
+            double forwardX = forward * Math.cos(heading);
+            double forwardY = forward * Math.sin(heading);
+
+            double rotX = forwardX * Math.cos(-heading) - forwardY * Math.sin(-heading);
+            double rotY = forwardX * Math.sin(-heading) + forwardY * Math.cos(-heading);
+
+            frontLeft.setPower(rotY + rotX - rotation);
+            backLeft.setPower(rotY - rotX - rotation);
+            frontRight.setPower(rotY - rotX + rotation);
+            backRight.setPower(rotY + rotX + rotation);
+        }
+        stop();
+    }
+
+    public void autoForward(double distance, double power) {
         pinpoint.update();
 
         double targetHeading = getHeading(AngleUnit.DEGREES);
 
         strafeDistancePID.reset();
 
-        double heading = 0;
-
-        while(opMode.opModeIsActive()){
+        while (opMode.opModeIsActive()) {
             pinpoint.update();
             Pose2D robotPose = pinpoint.getPosition();
 
             double currentDistance = robotPose.getX(DistanceUnit.CM);
             double distanceError = distance - currentDistance;
-            heading = robotPose.getHeading(AngleUnit.DEGREES);
+            double heading = robotPose.getHeading(AngleUnit.DEGREES);
 
             double x = strafeDistancePID.calculate(currentDistance, distance);
             double rotation = headingPID.calculate(heading, targetHeading);
@@ -117,13 +184,9 @@ public class DriveSubsystem {
             opMode.telemetry.addData("Target Distance", distance);
             opMode.telemetry.addData("Current Distance", currentDistance);
             opMode.telemetry.addData("Distance Error", distanceError);
-            opMode.telemetry.addData("Target Heading", targetHeading);
-            opMode.telemetry.addData("Heading", heading);
-            opMode.telemetry.addData("X Power", x);
-            opMode.telemetry.addData("Rotation Power", rotation);
             opMode.telemetry.update();
 
-            if(Math.abs(distanceError) < 0.4) break;
+            if (Math.abs(distanceError) < 0.4) break;
 
             frontLeft.setPower(x - rotation);
             backLeft.setPower(x - rotation);
@@ -133,22 +196,20 @@ public class DriveSubsystem {
         stop();
     }
 
-    public void autoStrafe(double distance, double power){
+    public void autoStrafe(double distance, double power) {
         pinpoint.update();
 
         double targetHeading = getHeading(AngleUnit.DEGREES);
 
         strafeDistancePID.reset();
 
-        double heading = 0;
-
-        while(opMode.opModeIsActive()){
+        while (opMode.opModeIsActive()) {
             pinpoint.update();
             Pose2D robotPose = pinpoint.getPosition();
 
             double currentDistance = robotPose.getY(DistanceUnit.CM);
             double distanceError = distance - currentDistance;
-            heading = robotPose.getHeading(AngleUnit.DEGREES);
+            double heading = robotPose.getHeading(AngleUnit.DEGREES);
 
             double y = strafeDistancePID.calculate(currentDistance, distance);
             double rotation = headingPID.calculate(heading, targetHeading);
@@ -159,13 +220,9 @@ public class DriveSubsystem {
             opMode.telemetry.addData("Target Distance", distance);
             opMode.telemetry.addData("Current Distance", currentDistance);
             opMode.telemetry.addData("Distance Error", distanceError);
-            opMode.telemetry.addData("Target Heading", targetHeading);
-            opMode.telemetry.addData("Heading", heading);
-            opMode.telemetry.addData("y Power", y);
-            opMode.telemetry.addData("Rotation Power", rotation);
             opMode.telemetry.update();
 
-            if(Math.abs(distanceError) < 0.7) break;
+            if (Math.abs(distanceError) < 0.7) break;
 
             frontLeft.setPower(-y - rotation);
             backLeft.setPower(y - rotation);
@@ -175,18 +232,26 @@ public class DriveSubsystem {
         stop();
     }
 
-    public void autoRotate(double heading, double power){
-        while(opMode.opModeIsActive()){
+    public void autoRotate(double targetHeading, double power) {
+        while (opMode.opModeIsActive()) {
             pinpoint.update();
             Pose2D robotPose = pinpoint.getPosition();
 
             double currentHeading = robotPose.getHeading(AngleUnit.DEGREES);
+            double error = targetHeading - currentHeading;
+            while (error > 180) error -= 360;
+            while (error < -180) error += 360;
 
-            double rotation = headingPID.calculate(currentHeading, heading);
+            double rotation = headingPID.calculate(0, error);
 
             rotation = Range.clip(rotation, -power, power);
 
-            if(Math.abs(currentHeading - heading) < 0.5) break;
+            opMode.telemetry.addData("Current Heading", currentHeading);
+            opMode.telemetry.addData("Target Heading", targetHeading);
+            opMode.telemetry.addData("Error", error);
+            opMode.telemetry.update();
+
+            if (Math.abs(error) < 0.5) break;
 
             frontLeft.setPower(-rotation);
             backLeft.setPower(-rotation);
@@ -196,10 +261,70 @@ public class DriveSubsystem {
         stop();
     }
 
+    public void autoMoveRelative(double distanceCM, double power) {
+        pinpoint.update();
+        Pose2D startPose = pinpoint.getPosition();
+
+        double startX = startPose.getX(DistanceUnit.CM);
+        double startY = startPose.getY(DistanceUnit.CM);
+        double targetHeading = startPose.getHeading(AngleUnit.DEGREES);
+
+        forwardDistancePID.reset();
+        headingPID.reset();
+
+        while(opMode.opModeIsActive()) {
+            pinpoint.update();
+            Pose2D currentPose = pinpoint.getPosition();
+
+            double currentX = currentPose.getX(DistanceUnit.CM);
+            double currentY = currentPose.getY(DistanceUnit.CM);
+
+            double deltaX = currentX - startX;
+            double deltaY = currentY - startY;
+            double distanceTraveled = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+            double distanceError = Math.abs(distanceCM) - distanceTraveled;
+
+            double forward = forwardDistancePID.calculate(distanceTraveled, Math.abs(distanceCM));
+
+            double currentHeading = currentPose.getHeading(AngleUnit.DEGREES);
+            double headingError = targetHeading - currentHeading;
+            while (headingError > 180) headingError -= 360;
+            while (headingError < -180) headingError += 360;
+            double rotation = headingPID.calculate(0, headingError);
+
+            if (distanceCM < 0) forward = -forward;
+
+            forward = Range.clip(forward, -Math.abs(power), Math.abs(power));
+            rotation = Range.clip(rotation, -0.3, 0.3);
+
+            opMode.telemetry.addData("Target Distance", distanceCM);
+            opMode.telemetry.addData("Distance Traveled", distanceTraveled);
+            opMode.telemetry.addData("Distance Error", distanceError);
+            opMode.telemetry.update();
+
+            if(distanceError < 2.0) break;
+
+            frontLeft.setPower(forward - rotation);
+            backLeft.setPower(forward - rotation);
+            frontRight.setPower(forward + rotation);
+            backRight.setPower(forward + rotation);
+        }
+        stop();
+    }
+
+    public void resetPinpoint() {
+        pinpoint.resetPosAndIMU();
+    }
+
     public void stop() {
         frontLeft.setPower(0);
         frontRight.setPower(0);
         backLeft.setPower(0);
         backRight.setPower(0);
+    }
+
+    public Pose2D getPinpointPosition() {
+        return pinpoint.getPosition();
     }
 }

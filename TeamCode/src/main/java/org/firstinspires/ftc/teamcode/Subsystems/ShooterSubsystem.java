@@ -19,7 +19,7 @@ public class ShooterSubsystem {
     private static final double kS = 0.07;
     private static final double kV = 0.00017;
     private static final double kPShooter = 0.0004;
-    private static final double readyFactor = 0.99;
+    private static final double readyFactor = 1;
     private static final double matrixSnapTolerance = 0.05;
 
     private final double[][] shooterMatrix = {
@@ -27,7 +27,7 @@ public class ShooterSubsystem {
             {2.0, 1900, 0.38},
             {3.0, 2000, 0.20},
             {3.3, 2050, 0.10},
-            {3.5, 2100, 0.0},
+            {3.5, 2050, 0.0},
     };
 
     public void init(HardwareMap hardwareMap) {
